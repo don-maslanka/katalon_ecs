@@ -7,12 +7,8 @@ pipeline {
     IMAGE_TAG  = "build-${BUILD_NUMBER}"
     FULL_IMAGE = "${IMAGE_NAME}:${IMAGE_TAG}"
 
-    // Project is at repo root
     KATALON_PROJECT_PATH = "."
-
-    // CHANGE THIS to your real suite name/path
-    TEST_SUITE_PATH      = "Test Suites/Smoke"
-
+    TEST_SUITE_PATH      = "Test Suites/Smoke"   // <-- change to your real suite
     EXEC_PROFILE         = "default"
     BROWSER              = "Chrome"
   }
@@ -36,8 +32,6 @@ pipeline {
       steps {
         sh '''
           set -euo pipefail
-          echo "Workspace: $PWD"
-
           docker run --rm \
             -v "$PWD:/workspace" \
             -w /workspace \
@@ -57,7 +51,6 @@ pipeline {
     always {
       sh '''
         set +e
-        docker image ls | head -n 30
         docker system prune -af
       '''
     }
