@@ -1,6 +1,6 @@
 pipeline {
 
-  agent { label 'katalon-ecs' }
+  agent { label 'ec2' }
 
   options {
     timestamps()
@@ -10,11 +10,11 @@ pipeline {
 
     stage('Checkout Source') {
       steps {
-        checkout scm
+        git branch: 'main', url: 'https://github.com/don-maslanka/katalon_ecs.git'
       }
     }
 
-    stage('ECS Smoke Test') {
+    stage('Local Smoke Test') {
       steps {
         sh '''
           set -e
@@ -26,9 +26,14 @@ pipeline {
 
           echo "=== WORKSPACE CONTENTS ==="
           ls -la
+          echo
+          find . -maxdepth 2 -type f | sort | head -100 || true
 
           echo "=== JAVA ==="
           java -version || true
+
+          echo "=== GIT ==="
+          git --version || true
 
           echo "=== KATALON ==="
           which katalonc || true
@@ -41,4 +46,5 @@ pipeline {
     }
 
   }
+
 }
