@@ -1,58 +1,72 @@
 pipeline {
-  agent { label 'docker' }
-  options { timestamps() }
+
+  agent { label 'katalon' }
+
+  options {
+    timestamps()
+  }
 
   environment {
-    IMAGE_NAME = "katalon-runner"
-    IMAGE_TAG  = "build-${BUILD_NUMBER}"
-    FULL_IMAGE = "${IMAGE_NAME}:${IMAGE_TAG}"
-
     KATALON_PROJECT_PATH = "."
-    TEST_SUITE_PATH      = "Test Suites/Smoke"   // <-- change to your real suite
+    TEST_SUITE_PATH      = "Test Suites/Smoke"
     EXEC_PROFILE         = "default"
     BROWSER              = "Chrome"
   }
 
   stages {
-    stage('Checkout') {
-      steps { checkout scm }
+
+    stage('Checkout Source') {
+      steps {
+        checkout scm
+      }
     }
 
-    stage('Build runner image') {
+    stage('Verify Environment') {
       steps {
         sh '''
-          set -euo pipefail
-          docker version
-          docker build -t "${FULL_IMAGE}" .
+          set -e
+          echo "Node information"
+          hostname
+          whoami
+          pwd
+
+          echo "Java runtime"
+          java -version || true
+
+          echo "Katalon CLI"
+          which katalonc || true
+          katalonc -version || true
         '''
       }
     }
 
-    stage('Run Katalon') {
+    stage('Run Katalon Tests') {
       steps {
         sh '''
-          set -euo pipefail
-          docker run --rm \
-            -v "$PWD:/workspace" \
-            -w /workspace \
-            "${FULL_IMAGE}" \
-            katalonc \
-              -projectPath="/workspace/${KATALON_PROJECT_PATH}" \
-              -testSuitePath="${TEST_SUITE_PATH}" \
-              -executionProfile="${EXEC_PROFILE}" \
-              -browserType="${BROWSER}" \
-              -retry=0
+          set -e
+
+          katalonc \
+            -projectPath="${KATALON_PROJECT_PATH}" \
+            -testSuitePath="${TEST_SUITE_PATH}" \
+            -executionProfile="${EXEC_PROFILE}" \
+            -browserType="${BROWSER}" \
+            -retry=0
         '''
       }
     }
+
   }
 
   post {
+
     always {
-      sh '''
-        set +e
-        docker system prune -af
-      '''
+
+      echo "Archiving reports"
+
+      archiveArtifacts artifacts: '**/Reports/**', allowEmptyArchive: true
+
+      junit testResults: '**/*.xml', allowEmptyResults: true
     }
   }
+
 }
