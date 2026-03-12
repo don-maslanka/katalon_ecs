@@ -1,50 +1,72 @@
 pipeline {
 
-  agent { label 'ec2' }
+  agent { label 'katalon-ecs' }
 
   options {
     timestamps()
+  }
+
+  environment {
+    KATALON_PROJECT_PATH = "."
+    TEST_SUITE_PATH      = "Test Suites/Smoke"
+    EXEC_PROFILE         = "default"
+    BROWSER              = "Chrome"
   }
 
   stages {
 
     stage('Checkout Source') {
       steps {
-        git branch: 'main', url: 'https://github.com/don-maslanka/katalon_ecs.git'
+        checkout scm
       }
     }
 
-    stage('Local Smoke Test') {
+    stage('Verify Environment') {
       steps {
         sh '''
           set -e
-
           echo "=== BASIC NODE INFO ==="
           hostname
           whoami
           pwd
 
-          echo "=== WORKSPACE CONTENTS ==="
-          ls -la
-          echo
-          find . -maxdepth 2 -type f | sort | head -100 || true
-
           echo "=== JAVA ==="
           java -version || true
-
-          echo "=== GIT ==="
-          git --version || true
 
           echo "=== KATALON ==="
           which katalonc || true
           katalonc -version || true
-
-          echo "=== ENVIRONMENT ==="
-          env | sort
         '''
       }
     }
 
+    stage('Run Katalon Tests') {
+      steps {
+        withCredentials([string(credentialsId: 'katalon-api-key', variable: 'KATALON_API_KEY')]) {
+          sh '''
+            set -e
+
+            katalonc \
+              -noSplash \
+              -runMode=console \
+              -projectPath="${KATALON_PROJECT_PATH}" \
+              -testSuitePath="${TEST_SUITE_PATH}" \
+              -executionProfile="${EXEC_PROFILE}" \
+              -browserType="${BROWSER}" \
+              -apiKey="${KATALON_API_KEY}" \
+              -retry=0
+          '''
+        }
+      }
+    }
+
+  }
+
+  post {
+    always {
+      archiveArtifacts artifacts: '**/Reports/**', allowEmptyArchive: true
+      junit testResults: '**/*.xml', allowEmptyResults: true
+    }
   }
 
 }
