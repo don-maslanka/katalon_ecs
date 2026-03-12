@@ -1,16 +1,9 @@
 pipeline {
 
-  agent { label 'katalon' }
+  agent { label 'katalon-ecs' }
 
   options {
     timestamps()
-  }
-
-  environment {
-    KATALON_PROJECT_PATH = "."
-    TEST_SUITE_PATH      = "Test Suites/Smoke"
-    EXEC_PROFILE         = "default"
-    BROWSER              = "Chrome"
   }
 
   stages {
@@ -21,52 +14,31 @@ pipeline {
       }
     }
 
-    stage('Verify Environment') {
+    stage('ECS Smoke Test') {
       steps {
         sh '''
           set -e
-          echo "Node information"
+
+          echo "=== BASIC NODE INFO ==="
           hostname
           whoami
           pwd
 
-          echo "Java runtime"
+          echo "=== WORKSPACE CONTENTS ==="
+          ls -la
+
+          echo "=== JAVA ==="
           java -version || true
 
-          echo "Katalon CLI"
+          echo "=== KATALON ==="
           which katalonc || true
           katalonc -version || true
-        '''
-      }
-    }
 
-    stage('Run Katalon Tests') {
-      steps {
-        sh '''
-          set -e
-
-          katalonc \
-            -projectPath="${KATALON_PROJECT_PATH}" \
-            -testSuitePath="${TEST_SUITE_PATH}" \
-            -executionProfile="${EXEC_PROFILE}" \
-            -browserType="${BROWSER}" \
-            -retry=0
+          echo "=== ENVIRONMENT ==="
+          env | sort
         '''
       }
     }
 
   }
-
-  post {
-
-    always {
-
-      echo "Archiving reports"
-
-      archiveArtifacts artifacts: '**/Reports/**', allowEmptyArchive: true
-
-      junit testResults: '**/*.xml', allowEmptyResults: true
-    }
-  }
-
 }
